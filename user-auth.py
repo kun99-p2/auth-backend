@@ -9,14 +9,22 @@ app.config['SECRET_KEY'] = 'test'
 jwt = JWTManager(app)
 CORS(app)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 db = SQLAlchemy(app)
+uname = ""
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String, unique=True, nullable=False)
     password = db.Column(db.String, nullable=False)
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
+    
+class Tokens(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String, unique=True, nullable=False)
+    token = db.Column(db.String, unique=True, nullable=False)
     
     def __repr__(self):
         return f'<User {self.username}>'
@@ -52,9 +60,18 @@ def login():
     password = data['password']
 
     user = User.query.filter_by(username=username).first()
-
     if user and check_password_hash(user.password, password):
         access_token = create_access_token(identity=user.id)
+        new_access = Tokens(username=username, token=access_token)
+        #remove entry if there is already one associated with user
+        user_authenticated = Tokens.query.filter_by(username=username).first()
+        if user_authenticated:
+            db.session.delete(user_authenticated)
+            db.session.commit()
+        db.session.add(new_access)
+        db.session.commit()
+        global uname
+        uname = username
         return jsonify({'success': True, 'message': 'Login successful', 'token': access_token}), 200
     else:
         return jsonify({'error': 'Invalid username or password'}), 401
@@ -62,6 +79,22 @@ def login():
 @app.route('/logout', methods=['POST'])
 def logout():
     return jsonify({'success': True, 'message': 'Logout successful'}), 200
+
+@app.route('/tok', methods=['POST'])
+def check_user():
+    data = request.get_json()
+    
+    if 'username' not in data:
+        return jsonify({'error': 'No access'}), 400
+
+    username = data['username']
+
+    access = Tokens.query.filter_by(username=username).first()
+    return jsonify({'success': True, 'message': 'Token retrieved', 'token': access.token}), 200
+
+@app.route('/get_user', methods=['GET'])
+def get_user():
+    return jsonify({'success': True, 'name': uname}), 200
 
 if __name__ == '__main__':
     with app.app_context():
