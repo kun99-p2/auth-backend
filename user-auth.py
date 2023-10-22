@@ -80,20 +80,33 @@ def login():
 def logout():
     return jsonify({'success': True, 'message': 'Logout successful'}), 200
 
-@app.route('/tok', methods=['POST'])
-def check_user():
+@app.route('/get_user_using_token', methods=['POST'])
+def get_user_using_token():
     data = request.get_json()
     
+    if 'token' not in data:
+        return jsonify({'error': 'Need token'}), 400
+
+    token = data['token']
+
+    access = Tokens.query.filter_by(token=token).first()
+    return jsonify({'success': True, 'message': 'Username retrieved', 'username': access.username}), 200
+
+@app.route('/get_token', methods=['POST'])
+def get_token():
+    data = request.get_json()
+    print(data['username'])
     if 'username' not in data:
         return jsonify({'error': 'No access'}), 400
 
     username = data['username']
 
     access = Tokens.query.filter_by(username=username).first()
+    
     return jsonify({'success': True, 'message': 'Token retrieved', 'token': access.token}), 200
 
-@app.route('/get_user', methods=['GET'])
-def get_user():
+@app.route('/fetch_username', methods=['GET'])
+def fetch_username():
     return jsonify({'success': True, 'name': uname}), 200
 
 if __name__ == '__main__':
