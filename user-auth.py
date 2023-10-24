@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token
@@ -28,6 +28,13 @@ class Tokens(db.Model):
     
     def __repr__(self):
         return f'<User {self.username}>'
+    
+class Views(db.Model):
+    id = db.Column(db.String, primary_key=True)
+    views = db.Column(db.Integer, default=0)
+
+    def __init__(self, id):
+        self.id = id
     
 @app.route('/register', methods=['POST'])
 def register():
@@ -78,6 +85,8 @@ def login():
 
 @app.route('/logout', methods=['POST'])
 def logout():
+    global uname
+    uname = ""
     return jsonify({'success': True, 'message': 'Logout successful'}), 200
 
 @app.route('/get_user_using_token', methods=['POST'])
@@ -109,6 +118,47 @@ def get_token():
 def fetch_username():
     return jsonify({'success': True, 'name': uname}), 200
 
+#views stuff
+@app.route('/views/<video_id>', methods=['GET'])
+def get_view_count(video_id):
+    video = Views.query.get(video_id)
+    if video:
+        return jsonify({'views': video.views}), 200
+    else:
+        return jsonify({'error': 'Video not found'}), 404
+
+@app.route('/increment/<video_id>', methods=['POST'])
+def increase_view_count(video_id):
+    video = Views.query.get(video_id)
+    if video:
+        video.views += 1
+        db.session.commit()
+        return jsonify({'views': video.views}), 200
+    else:
+        return jsonify({'error': 'Video not found'}), 404
+
+@app.route('/initialize', methods=['POST'])
+def create_video():
+    data = request.get_json()
+    video_id = data.get('video_id')
+    if video_id:
+        new_video = Views(id=video_id)
+        db.session.add(new_video)
+        db.session.commit()
+        return jsonify({'message': 'Video created successfully'}), 201
+    else:
+        return jsonify({'error': 'Invalid video ID'}), 400
+
+@app.route('/remove_views/<video_id>', methods=['DELETE'])
+def delete_video(video_id):
+    video = Views.query.get(video_id)
+    if video:
+        db.session.delete(video)
+        db.session.commit()
+        return jsonify({'message': 'Video deleted successfully'}), 200
+    else:
+        return jsonify({'error': 'Video not found'}), 404
+    
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
