@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token
+from flask_bcrypt import Bcrypt
 from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
@@ -11,6 +12,7 @@ CORS(app)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 db = SQLAlchemy(app)
+bcrypt = Bcrypt()
 uname = ""
 
 class User(db.Model):
@@ -39,17 +41,14 @@ class Views(db.Model):
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
-    
     if 'username' not in data or 'password' not in data:
         return jsonify({'error': 'Invalid request data'}), 400
-
     username = data['username']
     password = data['password']
-
     if User.query.filter_by(username=username).first():
         return jsonify({'error': 'Username already taken'}), 400
 
-    hashed_password = generate_password_hash(password, method='sha256')
+    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
     
     new_user = User(username=username, password=hashed_password)
     db.session.add(new_user)
@@ -59,15 +58,13 @@ def register():
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    
+    print(data)
     if 'username' not in data or 'password' not in data:
         return jsonify({'error': 'Invalid request data'}), 400
-
     username = data['username']
     password = data['password']
-
     user = User.query.filter_by(username=username).first()
-    if user and check_password_hash(user.password, password):
+    if user and bcrypt.check_password_hash(user.password, password):
         access_token = create_access_token(identity=user.id)
         new_access = Tokens(username=username, token=access_token)
         #remove entry if there is already one associated with user
@@ -92,26 +89,20 @@ def logout():
 @app.route('/get_user_using_token', methods=['POST'])
 def get_user_using_token():
     data = request.get_json()
-    
     if 'token' not in data:
         return jsonify({'error': 'Need token'}), 400
-
     token = data['token']
-
     access = Tokens.query.filter_by(token=token).first()
     return jsonify({'success': True, 'message': 'Username retrieved', 'username': access.username}), 200
 
 @app.route('/get_token', methods=['POST'])
 def get_token():
     data = request.get_json()
-    print(data['username'])
     if 'username' not in data:
         return jsonify({'error': 'No access'}), 400
-
     username = data['username']
-
     access = Tokens.query.filter_by(username=username).first()
-    
+    print(access)
     return jsonify({'success': True, 'message': 'Token retrieved', 'token': access.token}), 200
 
 @app.route('/fetch_username', methods=['GET'])
@@ -145,6 +136,7 @@ def create_video():
         new_video = Views(id=video_id)
         db.session.add(new_video)
         db.session.commit()
+        print("created "+video_id)
         return jsonify({'message': 'Video created successfully'}), 201
     else:
         return jsonify({'error': 'Invalid video ID'}), 400
