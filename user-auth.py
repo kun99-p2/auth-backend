@@ -3,7 +3,6 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token
 from flask_bcrypt import Bcrypt
-from werkzeug.security import check_password_hash, generate_password_hash
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'test'
