@@ -12,4 +12,4 @@ EXPOSE 5000
 
 ENV FLASK_ENV=production
 
-CMD ["python3", "upload.py"]
+CMD ["python3", "user-auth.py"]
